@@ -1,7 +1,6 @@
-import { deflate, inflate } from 'pako';
 import type { Project } from '../types';
 
-// Сжатие и кодирование проекта в URL-safe формат
+// Простое кодирование проекта в URL-safe формат (без сжатия)
 export function encodeProjectData(project: Project): string {
   try {
     // Убираем лишние данные для компактности
@@ -14,41 +13,18 @@ export function encodeProjectData(project: Project): string {
     
     const json = JSON.stringify(compactProject);
     
-    // Проверяем размер данных (максимум ~500KB для URL)
-    if (json.length > 500000) {
-      throw new Error('Проект слишком большой. Уменьшите количество сцен или текста.');
-    }
-    
-    // Сжимаем данные с помощью pako (deflate)
-    const compressed = deflate(json, { level: 9 });
-    
-    // Конвертируем Uint8Array в base64 по частям
-    // (String.fromCharCode не работает с большими массивами)
-    let binary = '';
-    const chunkSize = 8192;
-    for (let i = 0; i < compressed.length; i += chunkSize) {
-      const chunk = compressed.subarray(i, i + chunkSize);
-      binary += String.fromCharCode.apply(null, Array.from(chunk));
-    }
-    
-    const base64 = btoa(binary);
+    // Кодируем в base64
+    const base64 = btoa(unescape(encodeURIComponent(json)));
     
     // Заменяем символы для URL-safe
-    const encoded = base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
-    
-    // Проверяем, что результат не пустой
-    if (!encoded || encoded.length === 0) {
-      throw new Error('Не удалось закодировать данные.');
-    }
-    
-    return encoded;
+    return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
   } catch (error) {
     console.error('Error encoding project:', error);
     throw error;
   }
 }
 
-// Декодирование и распаковка проекта из URL
+// Декодирование проекта из URL
 export function decodeProjectData(encoded: string): Project | null {
   try {
     // Восстанавливаем base64
@@ -59,21 +35,9 @@ export function decodeProjectData(encoded: string): Project | null {
       base64 += '=';
     }
     
-    // Конвертируем из base64 в Uint8Array
-    const binaryString = atob(base64);
-    const bytes = new Uint8Array(binaryString.length);
-    for (let i = 0; i < binaryString.length; i++) {
-      bytes[i] = binaryString.charCodeAt(i);
-    }
-    
-    // Распаковываем данные
-    const decompressed = inflate(bytes);
-    
-    // Конвертируем Uint8Array в строку
-    const decoder = new TextDecoder();
-    const jsonString = decoder.decode(decompressed);
-    
-    const data = JSON.parse(jsonString);
+    // Декодируем
+    const json = decodeURIComponent(escape(atob(base64)));
+    const data = JSON.parse(json);
     
     // Восстанавливаем полную структуру Project
     return {
