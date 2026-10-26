@@ -45,6 +45,12 @@ export function DashboardPage() {
 
   const copyLink = (slug: string) => {
     navigator.clipboard.writeText(`${window.location.origin}/p/${slug}`);
+    // Показываем уведомление
+    const notification = document.createElement('div');
+    notification.className = 'fixed top-4 right-4 px-4 py-2 bg-green-500/20 border border-green-500/30 rounded-lg text-green-300 text-sm z-50';
+    notification.textContent = '✓ Ссылка скопирована';
+    document.body.appendChild(notification);
+    setTimeout(() => notification.remove(), 2000);
   };
 
   const stats = {
@@ -210,8 +216,8 @@ export function DashboardPage() {
                   {project.publishedSlug && (
                     <div className="flex items-center gap-2 mb-3 p-2 bg-white/5 rounded-lg">
                       <ExternalLink size={12} className="text-white/30 shrink-0" />
-                      <span className="text-xs text-white/40 truncate">
-                        /p/{project.publishedSlug}
+                      <span className="text-xs text-white/40 truncate" title={`${window.location.origin}/p/${project.publishedSlug}`}>
+                        Ссылка готова (работает в любом браузере)
                       </span>
                     </div>
                   )}

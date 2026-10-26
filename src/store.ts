@@ -352,14 +352,64 @@ export function publishProject(id: string): string {
   const projects = getProjects();
   const idx = projects.findIndex(p => p.id === id);
   if (idx !== -1) {
-    const slug = generateSlug();
+    // Кодируем данные проекта в URL
+    const projectData = projects[idx];
+    const encoded = encodeProjectData(projectData);
     projects[idx].status = 'published';
-    projects[idx].publishedSlug = slug;
+    projects[idx].publishedSlug = encoded;
     projects[idx].updatedAt = new Date().toISOString();
     saveProjects(projects);
-    return slug;
+    return encoded;
   }
   return '';
+}
+
+// Кодирование проекта в URL-safe формат
+export function encodeProjectData(project: Project): string {
+  // Убираем лишние данные для компактности
+  const compactProject = {
+    id: project.id,
+    title: project.title,
+    scenes: project.scenes,
+    settings: project.settings,
+  };
+  
+  const json = JSON.stringify(compactProject);
+  // Используем base64url encoding
+  const base64 = btoa(unescape(encodeURIComponent(json)));
+  // Заменяем символы для URL-safe
+  return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+}
+
+// Декодирование проекта из URL
+export function decodeProjectData(encoded: string): Project | null {
+  try {
+    // Восстанавливаем base64
+    let base64 = encoded.replace(/-/g, '+').replace(/_/g, '/');
+    // Добавляем padding
+    while (base64.length % 4) {
+      base64 += '=';
+    }
+    
+    const json = decodeURIComponent(escape(atob(base64)));
+    const data = JSON.parse(json);
+    
+    // Восстанавливаем полную структуру Project
+    return {
+      ...data,
+      description: data.description || '',
+      templateId: data.templateId,
+      status: 'published',
+      publishedSlug: encoded,
+      createdAt: data.createdAt || new Date().toISOString(),
+      updatedAt: data.updatedAt || new Date().toISOString(),
+      responses: [],
+      viewCount: 0,
+    };
+  } catch (e) {
+    console.error('Error decoding project data:', e);
+    return null;
+  }
 }
 
 export function unpublishProject(id: string) {

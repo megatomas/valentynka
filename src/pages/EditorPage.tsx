@@ -198,13 +198,7 @@ export function EditorPage() {
   const handlePublish = () => {
     if (!project) return;
     
-    // Если уже опубликован, используем существующий slug
-    if (project.status === 'published' && project.publishedSlug) {
-      setPublishedSlug(project.publishedSlug);
-      setShowPublish(true);
-      return;
-    }
-    
+    // Всегда перегенерируем slug с актуальными данными
     const slug = publishProject(project.id);
     setPublishedSlug(slug);
     setShowPublish(true);
@@ -714,8 +708,8 @@ export function EditorPage() {
           <Modal onClose={() => setShowPublish(false)} title="Приглашение опубликовано! 🎉">
             <div className="space-y-4">
               <p className="text-white/60 text-sm">Ваше приглашение доступно по ссылке:</p>
-              <div className="flex items-center gap-2 p-3 bg-white/5 rounded-lg border border-white/10">
-                <code className="text-sm text-rose-300 flex-1 truncate">
+              <div className="flex items-start gap-2 p-3 bg-white/5 rounded-lg border border-white/10">
+                <code className="text-xs text-rose-300 flex-1 break-all leading-relaxed">
                   {window.location.origin}/p/{publishedSlug}
                 </code>
                 <button
@@ -725,10 +719,9 @@ export function EditorPage() {
                   Копировать
                 </button>
               </div>
-              <div className="p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
-                <p className="text-xs text-yellow-300/80">
-                  💡 <strong>Важно:</strong> В текущей версии данные хранятся локально в браузере. 
-                  Ссылка работает только в том же браузере. Откройте её в новой вкладке для проверки.
+              <div className="p-3 bg-green-500/10 border border-green-500/20 rounded-lg">
+                <p className="text-xs text-green-300/80">
+                  ✅ <strong>Отлично!</strong> Ссылка содержит все данные приглашения и будет работать в любом браузере на любом устройстве. Просто отправьте её получателю!
                 </p>
               </div>
               <div className="flex gap-3">
