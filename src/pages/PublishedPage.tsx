@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Heart, Sparkles, ChevronRight } from 'lucide-react';
-import { getProjectBySlug } from '../store';
+import { getProjectBySlug, decodeProjectData } from '../store';
 import type { Project, Scene, SceneElement } from '../types';
 
 export function PublishedPage() {
   const { slug } = useParams();
+  const [searchParams] = useSearchParams();
   const [project, setProject] = useState<Project | null>(null);
   const [notFound, setNotFound] = useState(false);
   const [currentSceneIdx, setCurrentSceneIdx] = useState(0);
@@ -16,7 +17,26 @@ export function PublishedPage() {
   const [showConfetti, setShowConfetti] = useState(false);
 
   useEffect(() => {
+    // Сначала пробуем декодировать из URL параметра data
+    const dataParam = searchParams.get('data');
+    if (dataParam) {
+      const decoded = decodeProjectData(dataParam);
+      if (decoded) {
+        setProject(decoded);
+        return;
+      }
+    }
+    
+    // Если slug есть, пробуем декодировать его как данные
     if (slug) {
+      // Сначала пробуем декодировать slug как закодированные данные
+      const decoded = decodeProjectData(slug);
+      if (decoded) {
+        setProject(decoded);
+        return;
+      }
+      
+      // Если не получилось, ищем в localStorage (для обратной совместимости)
       const p = getProjectBySlug(slug);
       if (p) {
         setProject(p);
@@ -35,7 +55,7 @@ export function PublishedPage() {
         setNotFound(true);
       }
     }
-  }, [slug]);
+  }, [slug, searchParams]);
 
   const currentScene = project?.scenes[currentSceneIdx];
 
