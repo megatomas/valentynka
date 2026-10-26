@@ -21,11 +21,15 @@ export function PublishedPage() {
       if (p) {
         setProject(p);
         // Increment view count
-        const projects = JSON.parse(localStorage.getItem('loveletter_projects') || '[]');
-        const idx = projects.findIndex((proj: Project) => proj.id === p.id);
-        if (idx !== -1) {
-          projects[idx].viewCount = (projects[idx].viewCount || 0) + 1;
-          localStorage.setItem('loveletter_projects', JSON.stringify(projects));
+        try {
+          const projects = JSON.parse(localStorage.getItem('loveletter_projects') || '[]');
+          const idx = projects.findIndex((proj: Project) => proj.id === p.id);
+          if (idx !== -1) {
+            projects[idx].viewCount = (projects[idx].viewCount || 0) + 1;
+            localStorage.setItem('loveletter_projects', JSON.stringify(projects));
+          }
+        } catch (e) {
+          console.error('Error updating view count:', e);
         }
       } else {
         setNotFound(true);
@@ -86,11 +90,21 @@ export function PublishedPage() {
   if (notFound) {
     return (
       <div className="min-h-screen bg-dark-950 flex items-center justify-center text-white px-4">
-        <div className="text-center">
+        <div className="text-center max-w-md">
           <Heart size={48} className="mx-auto text-rose-400/30 mb-4" />
           <h1 className="font-display text-2xl font-bold mb-2">Приглашение не найдено</h1>
-          <p className="text-white/50 mb-6">Возможно, оно было удалено или ссылка неверна</p>
-          <Link to="/" className="px-6 py-3 bg-white/5 border border-white/10 rounded-full hover:bg-white/10 transition-all">
+          <p className="text-white/50 mb-4">
+            Это приглашение недоступно. Возможные причины:
+          </p>
+          <ul className="text-sm text-white/40 mb-6 text-left space-y-2">
+            <li>• Ссылка была введена неверно</li>
+            <li>• Приглашение было удалено автором</li>
+            <li>• Вы открыли ссылку в другом браузере (данные хранятся локально)</li>
+          </ul>
+          <p className="text-xs text-white/30 mb-6">
+            В production-версии приглашения будут храниться в облачной базе данных и работать на всех устройствах.
+          </p>
+          <Link to="/" className="inline-block px-6 py-3 bg-white/5 border border-white/10 rounded-full hover:bg-white/10 transition-all">
             На главную
           </Link>
         </div>

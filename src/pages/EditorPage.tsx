@@ -197,6 +197,14 @@ export function EditorPage() {
 
   const handlePublish = () => {
     if (!project) return;
+    
+    // Если уже опубликован, используем существующий slug
+    if (project.status === 'published' && project.publishedSlug) {
+      setPublishedSlug(project.publishedSlug);
+      setShowPublish(true);
+      return;
+    }
+    
     const slug = publishProject(project.id);
     setPublishedSlug(slug);
     setShowPublish(true);
@@ -712,10 +720,16 @@ export function EditorPage() {
                 </code>
                 <button
                   onClick={() => navigator.clipboard.writeText(`${window.location.origin}/p/${publishedSlug}`)}
-                  className="px-3 py-1.5 bg-rose-500/20 border border-rose-500/30 rounded-lg text-xs text-rose-300 hover:bg-rose-500/30 transition-all"
+                  className="px-3 py-1.5 bg-rose-500/20 border border-rose-500/30 rounded-lg text-xs text-rose-300 hover:bg-rose-500/30 transition-all shrink-0"
                 >
                   Копировать
                 </button>
+              </div>
+              <div className="p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
+                <p className="text-xs text-yellow-300/80">
+                  💡 <strong>Важно:</strong> В текущей версии данные хранятся локально в браузере. 
+                  Ссылка работает только в том же браузере. Откройте её в новой вкладке для проверки.
+                </p>
               </div>
               <div className="flex gap-3">
                 <button
