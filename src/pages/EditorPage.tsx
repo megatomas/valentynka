@@ -201,11 +201,18 @@ export function EditorPage() {
     try {
       // Кодируем данные проекта с сжатием
       const slug = publishProject(project.id);
+      
+      if (!slug) {
+        alert('Не удалось создать ссылку. Проект не найден.');
+        return;
+      }
+      
       setPublishedSlug(slug);
       setShowPublish(true);
     } catch (error) {
       console.error('Error publishing project:', error);
-      alert('Ошибка публикации. Попробуйте ещё раз.');
+      const errorMessage = error instanceof Error ? error.message : 'Неизвестная ошибка';
+      alert(`Ошибка публикации: ${errorMessage}\n\nПопробуйте:\n1. Обновить страницу\n2. Проверить консоль браузера (F12)\n3. Убедиться, что проект содержит данные`);
     }
   };
 

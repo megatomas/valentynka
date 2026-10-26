@@ -14,14 +14,34 @@ export function encodeProjectData(project: Project): string {
     
     const json = JSON.stringify(compactProject);
     
+    // Проверяем размер данных (максимум ~500KB для URL)
+    if (json.length > 500000) {
+      throw new Error('Проект слишком большой. Уменьшите количество сцен или текста.');
+    }
+    
     // Сжимаем данные с помощью pako (deflate)
     const compressed = deflate(json, { level: 9 });
     
-    // Конвертируем в base64
-    const base64 = btoa(String.fromCharCode(...compressed));
+    // Конвертируем Uint8Array в base64 по частям
+    // (String.fromCharCode не работает с большими массивами)
+    let binary = '';
+    const chunkSize = 8192;
+    for (let i = 0; i < compressed.length; i += chunkSize) {
+      const chunk = compressed.subarray(i, i + chunkSize);
+      binary += String.fromCharCode.apply(null, Array.from(chunk));
+    }
+    
+    const base64 = btoa(binary);
     
     // Заменяем символы для URL-safe
-    return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+    const encoded = base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+    
+    // Проверяем, что результат не пустой
+    if (!encoded || encoded.length === 0) {
+      throw new Error('Не удалось закодировать данные.');
+    }
+    
+    return encoded;
   } catch (error) {
     console.error('Error encoding project:', error);
     throw error;

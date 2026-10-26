@@ -353,25 +353,37 @@ export function deleteProject(id: string) {
 export function publishProject(id: string): string {
   const projects = getProjects();
   const idx = projects.findIndex(p => p.id === id);
-  if (idx !== -1) {
-    const projectData = projects[idx];
-    
-    try {
-      // Кодируем данные проекта с сжатием
-      const encoded = encodeProjectData(projectData);
-      
-      projects[idx].status = 'published';
-      projects[idx].publishedSlug = encoded;
-      projects[idx].updatedAt = new Date().toISOString();
-      saveProjects(projects);
-      
-      return encoded;
-    } catch (error) {
-      console.error('Error publishing project:', error);
-      throw error;
-    }
+  
+  if (idx === -1) {
+    console.error('Project not found:', id);
+    return '';
   }
-  return '';
+  
+  const projectData = projects[idx];
+  
+  try {
+    // Проверяем, что проект содержит данные
+    if (!projectData.scenes || projectData.scenes.length === 0) {
+      throw new Error('Проект не содержит сцен. Добавьте хотя бы одну сцену.');
+    }
+    
+    // Кодируем данные проекта с сжатием
+    const encoded = encodeProjectData(projectData);
+    
+    if (!encoded) {
+      throw new Error('Не удалось закодировать данные проекта.');
+    }
+    
+    projects[idx].status = 'published';
+    projects[idx].publishedSlug = encoded;
+    projects[idx].updatedAt = new Date().toISOString();
+    saveProjects(projects);
+    
+    return encoded;
+  } catch (error) {
+    console.error('Error publishing project:', error);
+    throw error;
+  }
 }
 
 // Получение опубликованного проекта из URL
