@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Heart, Sparkles, ChevronRight, Loader2 } from 'lucide-react';
+import { Heart, Sparkles, Loader2 } from 'lucide-react';
 import { getPublishedProject } from '../store';
-import type { Project, Scene, SceneElement } from '../types';
+import type { Project, SceneElement } from '../types';
 
 export function PublishedPage() {
   const { slug } = useParams();
@@ -29,6 +29,7 @@ export function PublishedPage() {
       
       if (loadedProject) {
         setProject(loadedProject);
+        setNotFound(false);
       } else {
         setNotFound(true);
       }
@@ -86,11 +87,10 @@ export function PublishedPage() {
     }
     
     // Автоматический переход на следующую сцену после выбора ответа
-    // (для сцен question и choice, но не для финальных)
     if (project && currentSceneIdx < project.scenes.length - 1) {
       setTimeout(() => {
         setCurrentSceneIdx(prev => prev + 1);
-      }, 1500); // Задержка 1.5 секунды, чтобы пользователь увидел свой выбор
+      }, 1500);
     }
   };
 
@@ -111,6 +111,19 @@ export function PublishedPage() {
     });
   };
 
+  // Показываем загрузку
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-dark-950 flex items-center justify-center text-white">
+        <div className="text-center">
+          <Loader2 size={48} className="mx-auto text-rose-400 animate-spin mb-4" />
+          <p className="text-white/50">Загружаем приглашение...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Показываем ошибку
   if (notFound) {
     return (
       <div className="min-h-screen bg-dark-950 flex items-center justify-center text-white px-4">
@@ -123,11 +136,8 @@ export function PublishedPage() {
           <ul className="text-sm text-white/40 mb-6 text-left space-y-2">
             <li>• Ссылка была введена неверно</li>
             <li>• Приглашение было удалено автором</li>
-            <li>• Вы открыли ссылку в другом браузере (данные хранятся локально)</li>
+            <li>• Ссылка повреждена или устарела</li>
           </ul>
-          <p className="text-xs text-white/30 mb-6">
-            В production-версии приглашения будут храниться в облачной базе данных и работать на всех устройствах.
-          </p>
           <Link to="/" className="inline-block px-6 py-3 bg-white/5 border border-white/10 rounded-full hover:bg-white/10 transition-all">
             На главную
           </Link>
@@ -136,17 +146,7 @@ export function PublishedPage() {
     );
   }
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-dark-950 flex items-center justify-center text-white">
-        <div className="text-center">
-          <Loader2 size={48} className="mx-auto text-rose-400 animate-spin mb-4" />
-          <p className="text-white/50">Загружаем приглашение...</p>
-        </div>
-      </div>
-    );
-  }
-
+  // Показываем загрузку если нет данных
   if (!project || !currentScene) {
     return (
       <div className="min-h-screen bg-dark-950 flex items-center justify-center text-white">
@@ -558,7 +558,7 @@ function ConfettiEffect() {
           }}
           initial={{ y: -20, opacity: 1, rotate: 0 }}
           animate={{ 
-            y: window.innerHeight + 20, 
+            y: typeof window !== 'undefined' ? window.innerHeight + 20 : 1000, 
             opacity: [1, 1, 0],
             rotate: Math.random() * 720,
             x: (Math.random() - 0.5) * 200,
