@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Heart, ArrowLeft, Save, Eye, Plus, Trash2, Copy, GripVertical,
   Type, Image, Music, Sparkles, Settings, Check, AlertCircle,
-  ChevronDown, Layers, Palette, Play, Monitor, Smartphone
+  ChevronDown, Layers, Palette, Play, Monitor, Smartphone, Loader2
 } from 'lucide-react';
 import { getProject, updateProject, publishProject, createEmptyProject } from '../store';
 import type { Project, Scene, SceneElement, SceneType, ElementType } from '../types';
@@ -62,6 +62,7 @@ export function EditorPage() {
   const [showAddElement, setShowAddElement] = useState(false);
   const [showPublish, setShowPublish] = useState(false);
   const [publishedSlug, setPublishedSlug] = useState<string | null>(null);
+  const [isPublishing, setIsPublishing] = useState(false);
 
   // Load project
   useEffect(() => {
@@ -195,13 +196,21 @@ export function EditorPage() {
     updateProjectState(p => ({ ...p, scenes }));
   };
 
-  const handlePublish = () => {
+  const handlePublish = async () => {
     if (!project) return;
     
-    // Всегда перегенерируем slug с актуальными данными
-    const slug = publishProject(project.id);
-    setPublishedSlug(slug);
-    setShowPublish(true);
+    setIsPublishing(true);
+    try {
+      // Всегда перегенерируем slug с актуальными данными
+      const slug = await publishProject(project.id);
+      setPublishedSlug(slug);
+      setShowPublish(true);
+    } catch (error) {
+      console.error('Error publishing project:', error);
+      alert('Ошибка публикации. Попробуйте ещё раз.');
+    } finally {
+      setIsPublishing(false);
+    }
   };
 
   if (!project) return <div className="min-h-screen bg-dark-950 flex items-center justify-center text-white">Загрузка...</div>;
@@ -235,9 +244,18 @@ export function EditorPage() {
           </button>
           <button
             onClick={handlePublish}
-            className="flex items-center gap-1.5 px-4 py-1.5 text-sm bg-gradient-to-r from-rose-600 to-rose-500 rounded-lg font-medium hover:shadow-lg hover:shadow-rose-500/20 transition-all"
+            disabled={isPublishing}
+            className="flex items-center gap-1.5 px-4 py-1.5 text-sm bg-gradient-to-r from-rose-600 to-rose-500 rounded-lg font-medium hover:shadow-lg hover:shadow-rose-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <Sparkles size={14} /> Опубликовать
+            {isPublishing ? (
+              <>
+                <Loader2 size={14} className="animate-spin" /> Публикация...
+              </>
+            ) : (
+              <>
+                <Sparkles size={14} /> Опубликовать
+              </>
+            )}
           </button>
         </div>
       </header>
@@ -707,9 +725,9 @@ export function EditorPage() {
         {showPublish && publishedSlug && (
           <Modal onClose={() => setShowPublish(false)} title="Приглашение опубликовано! 🎉">
             <div className="space-y-4">
-              <p className="text-white/60 text-sm">Ваше приглашение доступно по ссылке:</p>
-              <div className="flex items-start gap-2 p-3 bg-white/5 rounded-lg border border-white/10">
-                <code className="text-xs text-rose-300 flex-1 break-all leading-relaxed">
+              <p className="text-white/60 text-sm">Ваше приглашение доступно по короткой ссылке:</p>
+              <div className="flex items-center gap-2 p-3 bg-white/5 rounded-lg border border-white/10">
+                <code className="text-sm text-rose-300 flex-1 truncate">
                   {window.location.origin}/p/{publishedSlug}
                 </code>
                 <button
@@ -721,7 +739,7 @@ export function EditorPage() {
               </div>
               <div className="p-3 bg-green-500/10 border border-green-500/20 rounded-lg">
                 <p className="text-xs text-green-300/80">
-                  ✅ <strong>Отлично!</strong> Ссылка содержит все данные приглашения и будет работать в любом браузере на любом устройстве. Просто отправьте её получателю!
+                  ✅ <strong>Отлично!</strong> Данные хранятся на сервере. Ссылка короткая и будет работать в любом браузере на любом устройстве.
                 </p>
               </div>
               <div className="flex gap-3">

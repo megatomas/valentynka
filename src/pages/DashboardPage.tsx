@@ -217,7 +217,7 @@ export function DashboardPage() {
                     <div className="flex items-center gap-2 mb-3 p-2 bg-white/5 rounded-lg">
                       <ExternalLink size={12} className="text-white/30 shrink-0" />
                       <span className="text-xs text-white/40 truncate" title={`${window.location.origin}/p/${project.publishedSlug}`}>
-                        Ссылка готова (работает в любом браузере)
+                        /p/{project.publishedSlug}
                       </span>
                     </div>
                   )}

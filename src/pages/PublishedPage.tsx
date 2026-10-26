@@ -1,15 +1,15 @@
 import { useState, useEffect } from 'react';
-import { useParams, Link, useSearchParams } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Heart, Sparkles, ChevronRight } from 'lucide-react';
-import { getProjectBySlug, decodeProjectData } from '../store';
+import { Heart, Sparkles, ChevronRight, Loader2 } from 'lucide-react';
+import { getPublishedProject } from '../store';
 import type { Project, Scene, SceneElement } from '../types';
 
 export function PublishedPage() {
   const { slug } = useParams();
-  const [searchParams] = useSearchParams();
   const [project, setProject] = useState<Project | null>(null);
   const [notFound, setNotFound] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [currentSceneIdx, setCurrentSceneIdx] = useState(0);
   const [revealedSecrets, setRevealedSecrets] = useState<Set<string>>(new Set());
   const [openedEnvelope, setOpenedEnvelope] = useState<Set<string>>(new Set());
@@ -17,45 +17,32 @@ export function PublishedPage() {
   const [showConfetti, setShowConfetti] = useState(false);
 
   useEffect(() => {
-    // Сначала пробуем декодировать из URL параметра data
-    const dataParam = searchParams.get('data');
-    if (dataParam) {
-      const decoded = decodeProjectData(dataParam);
-      if (decoded) {
-        setProject(decoded);
-        return;
-      }
-    }
-    
-    // Если slug есть, пробуем декодировать его как данные
-    if (slug) {
-      // Сначала пробуем декодировать slug как закодированные данные
-      const decoded = decodeProjectData(slug);
-      if (decoded) {
-        setProject(decoded);
-        return;
-      }
-      
-      // Если не получилось, ищем в localStorage (для обратной совместимости)
-      const p = getProjectBySlug(slug);
-      if (p) {
-        setProject(p);
-        // Increment view count
-        try {
-          const projects = JSON.parse(localStorage.getItem('loveletter_projects') || '[]');
-          const idx = projects.findIndex((proj: Project) => proj.id === p.id);
-          if (idx !== -1) {
-            projects[idx].viewCount = (projects[idx].viewCount || 0) + 1;
-            localStorage.setItem('loveletter_projects', JSON.stringify(projects));
-          }
-        } catch (e) {
-          console.error('Error updating view count:', e);
-        }
-      } else {
+    const loadProject = async () => {
+      if (!slug) {
         setNotFound(true);
+        setLoading(false);
+        return;
       }
-    }
-  }, [slug, searchParams]);
+
+      try {
+        // Загружаем проект из удалённого хранилища
+        const loadedProject = await getPublishedProject(slug);
+        
+        if (loadedProject) {
+          setProject(loadedProject);
+        } else {
+          setNotFound(true);
+        }
+      } catch (error) {
+        console.error('Error loading project:', error);
+        setNotFound(true);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadProject();
+  }, [slug]);
 
   const currentScene = project?.scenes[currentSceneIdx];
 
@@ -66,27 +53,48 @@ export function PublishedPage() {
   };
 
   const handleAnswer = (elementId: string, answer: string) => {
+    // Предотвращаем повторные переходы
+    if (selectedAnswers[elementId]) return;
+    
     setSelectedAnswers(prev => ({ ...prev, [elementId]: answer }));
+    
     // Save response
     if (project) {
-      const projects = JSON.parse(localStorage.getItem('loveletter_projects') || '[]');
-      const idx = projects.findIndex((p: Project) => p.id === project.id);
-      if (idx !== -1) {
-        projects[idx].responses = projects[idx].responses || [];
-        projects[idx].responses.push({
-          id: crypto.randomUUID(),
-          sceneId: currentScene?.id || '',
-          elementId,
-          answer,
-          timestamp: new Date().toISOString(),
-        });
-        localStorage.setItem('loveletter_projects', JSON.stringify(projects));
+      try {
+        const projects = JSON.parse(localStorage.getItem('loveletter_projects') || '[]');
+        const idx = projects.findIndex((p: Project) => p.id === project.id);
+        if (idx !== -1) {
+          projects[idx].responses = projects[idx].responses || [];
+          projects[idx].responses.push({
+            id: crypto.randomUUID(),
+            sceneId: currentScene?.id || '',
+            elementId,
+            answer,
+            timestamp: new Date().toISOString(),
+          });
+          localStorage.setItem('loveletter_projects', JSON.stringify(projects));
+        }
+      } catch (e) {
+        console.error('Error saving response:', e);
       }
     }
+    
+    // Находим элемент, на который ответили
+    const element = currentScene?.elements.find(el => el.id === elementId);
+    
     // Trigger confetti for final confirm
-    if (currentScene?.type === 'finale') {
+    if (currentScene?.type === 'finale' || element?.type === 'final-confirm') {
       setShowConfetti(true);
       setTimeout(() => setShowConfetti(false), 3000);
+      return; // Не переходим дальше после финала
+    }
+    
+    // Автоматический переход на следующую сцену после выбора ответа
+    // (для сцен question и choice, но не для финальных)
+    if (project && currentSceneIdx < project.scenes.length - 1) {
+      setTimeout(() => {
+        setCurrentSceneIdx(prev => prev + 1);
+      }, 1500); // Задержка 1.5 секунды, чтобы пользователь увидел свой выбор
     }
   };
 
@@ -127,6 +135,17 @@ export function PublishedPage() {
           <Link to="/" className="inline-block px-6 py-3 bg-white/5 border border-white/10 rounded-full hover:bg-white/10 transition-all">
             На главную
           </Link>
+        </div>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-dark-950 flex items-center justify-center text-white">
+        <div className="text-center">
+          <Loader2 size={48} className="mx-auto text-rose-400 animate-spin mb-4" />
+          <p className="text-white/50">Загружаем приглашение...</p>
         </div>
       </div>
     );
@@ -344,17 +363,40 @@ function ElementRenderer({
             <motion.button
               key={i}
               onClick={() => onAnswer(opt)}
+              disabled={!!selectedAnswer}
               className={`w-full px-6 py-4 rounded-2xl text-left transition-all ${
                 selectedAnswer === opt
                   ? 'bg-rose-500/20 border-2 border-rose-400/50 text-white'
+                  : selectedAnswer
+                  ? 'bg-white/5 border border-white/10 text-white/40'
                   : 'bg-white/5 border border-white/10 text-white/80 hover:bg-white/10 hover:border-white/20'
               }`}
-              whileHover={{ scale: 1.01 }}
-              whileTap={{ scale: 0.99 }}
+              whileHover={!selectedAnswer ? { scale: 1.01 } : {}}
+              whileTap={!selectedAnswer ? { scale: 0.99 } : {}}
             >
-              {opt}
+              <span className="flex items-center justify-between">
+                <span>{opt}</span>
+                {selectedAnswer === opt && (
+                  <motion.span
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    className="text-rose-400"
+                  >
+                    ✓
+                  </motion.span>
+                )}
+              </span>
             </motion.button>
           ))}
+          {selectedAnswer && (
+            <motion.p
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="text-center text-white/50 text-sm mt-4"
+            >
+              Переходим дальше...
+            </motion.p>
+          )}
         </div>
       );
 
@@ -368,17 +410,40 @@ function ElementRenderer({
             <motion.button
               key={i}
               onClick={() => onAnswer(opt)}
+              disabled={!!selectedAnswer}
               className={`w-full px-6 py-4 rounded-2xl text-center transition-all ${
                 selectedAnswer === opt
                   ? 'bg-gradient-to-r from-rose-500/20 to-lavender-500/20 border-2 border-rose-400/40 text-white'
+                  : selectedAnswer
+                  ? 'bg-white/5 border border-white/10 text-white/40'
                   : 'bg-white/5 border border-white/10 text-white/80 hover:bg-white/10'
               }`}
-              whileHover={{ scale: 1.01 }}
-              whileTap={{ scale: 0.99 }}
+              whileHover={!selectedAnswer ? { scale: 1.01 } : {}}
+              whileTap={!selectedAnswer ? { scale: 0.99 } : {}}
             >
-              {opt}
+              <span className="flex items-center justify-center gap-2">
+                <span>{opt}</span>
+                {selectedAnswer === opt && (
+                  <motion.span
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    className="text-rose-400"
+                  >
+                    ✓
+                  </motion.span>
+                )}
+              </span>
             </motion.button>
           ))}
+          {selectedAnswer && (
+            <motion.p
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="text-center text-white/50 text-sm mt-4"
+            >
+              Переходим дальше...
+            </motion.p>
+          )}
         </div>
       );
 

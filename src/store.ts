@@ -1,5 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import type { Project, Scene, Template, TemplateCategory } from './types';
+import { createRemoteProject, getRemoteProject, updateRemoteProject } from './lib/remoteStorage';
 
 const PROJECTS_KEY = 'loveletter_projects';
 const CURRENT_USER_KEY = 'loveletter_user';
@@ -348,66 +349,72 @@ export function deleteProject(id: string) {
   saveProjects(projects);
 }
 
-export function publishProject(id: string): string {
+// Публикация проекта через удалённое хранилище
+export async function publishProject(id: string): Promise<string> {
   const projects = getProjects();
   const idx = projects.findIndex(p => p.id === id);
   if (idx !== -1) {
-    // Кодируем данные проекта в URL
     const projectData = projects[idx];
-    const encoded = encodeProjectData(projectData);
-    projects[idx].status = 'published';
-    projects[idx].publishedSlug = encoded;
-    projects[idx].updatedAt = new Date().toISOString();
-    saveProjects(projects);
-    return encoded;
+    
+    // Подготавливаем данные для удалённого хранения
+    const remoteData = {
+      id: projectData.id,
+      title: projectData.title,
+      scenes: projectData.scenes,
+      settings: projectData.settings,
+      createdAt: projectData.createdAt,
+      updatedAt: new Date().toISOString(),
+    };
+    
+    try {
+      let remoteId = projectData.remoteId;
+      
+      // Если уже есть remoteId, обновляем существующий документ
+      if (remoteId) {
+        await updateRemoteProject(remoteId, remoteData);
+      } else {
+        // Иначе создаём новый документ
+        remoteId = await createRemoteProject(remoteData);
+        projects[idx].remoteId = remoteId;
+      }
+      
+      projects[idx].status = 'published';
+      projects[idx].publishedSlug = remoteId;
+      projects[idx].updatedAt = new Date().toISOString();
+      saveProjects(projects);
+      
+      return remoteId;
+    } catch (error) {
+      console.error('Error publishing project:', error);
+      throw error;
+    }
   }
   return '';
 }
 
-// Кодирование проекта в URL-safe формат
-export function encodeProjectData(project: Project): string {
-  // Убираем лишние данные для компактности
-  const compactProject = {
-    id: project.id,
-    title: project.title,
-    scenes: project.scenes,
-    settings: project.settings,
-  };
-  
-  const json = JSON.stringify(compactProject);
-  // Используем base64url encoding
-  const base64 = btoa(unescape(encodeURIComponent(json)));
-  // Заменяем символы для URL-safe
-  return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
-}
-
-// Декодирование проекта из URL
-export function decodeProjectData(encoded: string): Project | null {
+// Получение опубликованного проекта из удалённого хранилища
+export async function getPublishedProject(slug: string): Promise<Project | null> {
   try {
-    // Восстанавливаем base64
-    let base64 = encoded.replace(/-/g, '+').replace(/_/g, '/');
-    // Добавляем padding
-    while (base64.length % 4) {
-      base64 += '=';
-    }
-    
-    const json = decodeURIComponent(escape(atob(base64)));
-    const data = JSON.parse(json);
+    const remoteData = await getRemoteProject(slug);
+    if (!remoteData) return null;
     
     // Восстанавливаем полную структуру Project
     return {
-      ...data,
-      description: data.description || '',
-      templateId: data.templateId,
+      id: remoteData.id,
+      title: remoteData.title,
+      description: '',
+      scenes: remoteData.scenes,
+      settings: remoteData.settings,
       status: 'published',
-      publishedSlug: encoded,
-      createdAt: data.createdAt || new Date().toISOString(),
-      updatedAt: data.updatedAt || new Date().toISOString(),
+      publishedSlug: slug,
+      remoteId: slug,
+      createdAt: remoteData.createdAt,
+      updatedAt: remoteData.updatedAt,
       responses: [],
       viewCount: 0,
     };
-  } catch (e) {
-    console.error('Error decoding project data:', e);
+  } catch (error) {
+    console.error('Error fetching published project:', error);
     return null;
   }
 }
