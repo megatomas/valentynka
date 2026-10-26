@@ -1,15 +1,15 @@
 import { useState, useEffect } from 'react';
-import { useParams, Link, useSearchParams } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Heart, Sparkles, ChevronRight } from 'lucide-react';
-import { getProjectBySlug, decodeProjectData } from '../store';
+import { Heart, Sparkles, ChevronRight, Loader2 } from 'lucide-react';
+import { getPublishedProject } from '../store';
 import type { Project, Scene, SceneElement } from '../types';
 
 export function PublishedPage() {
   const { slug } = useParams();
-  const [searchParams] = useSearchParams();
   const [project, setProject] = useState<Project | null>(null);
   const [notFound, setNotFound] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [currentSceneIdx, setCurrentSceneIdx] = useState(0);
   const [revealedSecrets, setRevealedSecrets] = useState<Set<string>>(new Set());
   const [openedEnvelope, setOpenedEnvelope] = useState<Set<string>>(new Set());
@@ -17,45 +17,32 @@ export function PublishedPage() {
   const [showConfetti, setShowConfetti] = useState(false);
 
   useEffect(() => {
-    // Сначала пробуем декодировать из URL параметра data
-    const dataParam = searchParams.get('data');
-    if (dataParam) {
-      const decoded = decodeProjectData(dataParam);
-      if (decoded) {
-        setProject(decoded);
-        return;
-      }
-    }
-    
-    // Если slug есть, пробуем декодировать его как данные
-    if (slug) {
-      // Сначала пробуем декодировать slug как закодированные данные
-      const decoded = decodeProjectData(slug);
-      if (decoded) {
-        setProject(decoded);
-        return;
-      }
-      
-      // Если не получилось, ищем в localStorage (для обратной совместимости)
-      const p = getProjectBySlug(slug);
-      if (p) {
-        setProject(p);
-        // Increment view count
-        try {
-          const projects = JSON.parse(localStorage.getItem('loveletter_projects') || '[]');
-          const idx = projects.findIndex((proj: Project) => proj.id === p.id);
-          if (idx !== -1) {
-            projects[idx].viewCount = (projects[idx].viewCount || 0) + 1;
-            localStorage.setItem('loveletter_projects', JSON.stringify(projects));
-          }
-        } catch (e) {
-          console.error('Error updating view count:', e);
-        }
-      } else {
+    const loadProject = async () => {
+      if (!slug) {
         setNotFound(true);
+        setLoading(false);
+        return;
       }
-    }
-  }, [slug, searchParams]);
+
+      try {
+        // Загружаем проект из удалённого хранилища
+        const loadedProject = await getPublishedProject(slug);
+        
+        if (loadedProject) {
+          setProject(loadedProject);
+        } else {
+          setNotFound(true);
+        }
+      } catch (error) {
+        console.error('Error loading project:', error);
+        setNotFound(true);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadProject();
+  }, [slug]);
 
   const currentScene = project?.scenes[currentSceneIdx];
 
@@ -148,6 +135,17 @@ export function PublishedPage() {
           <Link to="/" className="inline-block px-6 py-3 bg-white/5 border border-white/10 rounded-full hover:bg-white/10 transition-all">
             На главную
           </Link>
+        </div>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-dark-950 flex items-center justify-center text-white">
+        <div className="text-center">
+          <Loader2 size={48} className="mx-auto text-rose-400 animate-spin mb-4" />
+          <p className="text-white/50">Загружаем приглашение...</p>
         </div>
       </div>
     );

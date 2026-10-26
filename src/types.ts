@@ -70,6 +70,7 @@ export interface Project {
   };
   status: 'draft' | 'published';
   publishedSlug?: string;
+  remoteId?: string;
   createdAt: string;
   updatedAt: string;
   responses: RecipientResponse[];
