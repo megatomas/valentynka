@@ -62,7 +62,6 @@ export function EditorPage() {
   const [showAddElement, setShowAddElement] = useState(false);
   const [showPublish, setShowPublish] = useState(false);
   const [publishedSlug, setPublishedSlug] = useState<string | null>(null);
-  const [isPublishing, setIsPublishing] = useState(false);
 
   // Load project
   useEffect(() => {
@@ -196,20 +195,17 @@ export function EditorPage() {
     updateProjectState(p => ({ ...p, scenes }));
   };
 
-  const handlePublish = async () => {
+  const handlePublish = () => {
     if (!project) return;
     
-    setIsPublishing(true);
     try {
-      // Всегда перегенерируем slug с актуальными данными
-      const slug = await publishProject(project.id);
+      // Кодируем данные проекта с сжатием
+      const slug = publishProject(project.id);
       setPublishedSlug(slug);
       setShowPublish(true);
     } catch (error) {
       console.error('Error publishing project:', error);
       alert('Ошибка публикации. Попробуйте ещё раз.');
-    } finally {
-      setIsPublishing(false);
     }
   };
 
@@ -244,18 +240,9 @@ export function EditorPage() {
           </button>
           <button
             onClick={handlePublish}
-            disabled={isPublishing}
-            className="flex items-center gap-1.5 px-4 py-1.5 text-sm bg-gradient-to-r from-rose-600 to-rose-500 rounded-lg font-medium hover:shadow-lg hover:shadow-rose-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center gap-1.5 px-4 py-1.5 text-sm bg-gradient-to-r from-rose-600 to-rose-500 rounded-lg font-medium hover:shadow-lg hover:shadow-rose-500/20 transition-all"
           >
-            {isPublishing ? (
-              <>
-                <Loader2 size={14} className="animate-spin" /> Публикация...
-              </>
-            ) : (
-              <>
-                <Sparkles size={14} /> Опубликовать
-              </>
-            )}
+            <Sparkles size={14} /> Опубликовать
           </button>
         </div>
       </header>
@@ -739,7 +726,7 @@ export function EditorPage() {
               </div>
               <div className="p-3 bg-green-500/10 border border-green-500/20 rounded-lg">
                 <p className="text-xs text-green-300/80">
-                  ✅ <strong>Отлично!</strong> Данные хранятся на сервере. Ссылка короткая и будет работать в любом браузере на любом устройстве.
+                  ✅ <strong>Отлично!</strong> Данные сжаты и закодированы в ссылке. Она будет работать в любом браузере на любом устройстве без сервера.
                 </p>
               </div>
               <div className="flex gap-3">

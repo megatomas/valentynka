@@ -1,6 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import type { Project, Scene, Template, TemplateCategory } from './types';
-import { createRemoteProject, getRemoteProject, updateRemoteProject } from './lib/remoteStorage';
+import { encodeProjectData, decodeProjectData } from './lib/compressedStorage';
 
 const PROJECTS_KEY = 'loveletter_projects';
 const CURRENT_USER_KEY = 'loveletter_user';
@@ -349,41 +349,23 @@ export function deleteProject(id: string) {
   saveProjects(projects);
 }
 
-// Публикация проекта через удалённое хранилище
-export async function publishProject(id: string): Promise<string> {
+// Публикация проекта с сжатием данных в URL
+export function publishProject(id: string): string {
   const projects = getProjects();
   const idx = projects.findIndex(p => p.id === id);
   if (idx !== -1) {
     const projectData = projects[idx];
     
-    // Подготавливаем данные для удалённого хранения
-    const remoteData = {
-      id: projectData.id,
-      title: projectData.title,
-      scenes: projectData.scenes,
-      settings: projectData.settings,
-      createdAt: projectData.createdAt,
-      updatedAt: new Date().toISOString(),
-    };
-    
     try {
-      let remoteId = projectData.remoteId;
-      
-      // Если уже есть remoteId, обновляем существующий документ
-      if (remoteId) {
-        await updateRemoteProject(remoteId, remoteData);
-      } else {
-        // Иначе создаём новый документ
-        remoteId = await createRemoteProject(remoteData);
-        projects[idx].remoteId = remoteId;
-      }
+      // Кодируем данные проекта с сжатием
+      const encoded = encodeProjectData(projectData);
       
       projects[idx].status = 'published';
-      projects[idx].publishedSlug = remoteId;
+      projects[idx].publishedSlug = encoded;
       projects[idx].updatedAt = new Date().toISOString();
       saveProjects(projects);
       
-      return remoteId;
+      return encoded;
     } catch (error) {
       console.error('Error publishing project:', error);
       throw error;
@@ -392,31 +374,9 @@ export async function publishProject(id: string): Promise<string> {
   return '';
 }
 
-// Получение опубликованного проекта из удалённого хранилища
-export async function getPublishedProject(slug: string): Promise<Project | null> {
-  try {
-    const remoteData = await getRemoteProject(slug);
-    if (!remoteData) return null;
-    
-    // Восстанавливаем полную структуру Project
-    return {
-      id: remoteData.id,
-      title: remoteData.title,
-      description: '',
-      scenes: remoteData.scenes,
-      settings: remoteData.settings,
-      status: 'published',
-      publishedSlug: slug,
-      remoteId: slug,
-      createdAt: remoteData.createdAt,
-      updatedAt: remoteData.updatedAt,
-      responses: [],
-      viewCount: 0,
-    };
-  } catch (error) {
-    console.error('Error fetching published project:', error);
-    return null;
-  }
+// Получение опубликованного проекта из URL
+export function getPublishedProject(slug: string): Project | null {
+  return decodeProjectData(slug);
 }
 
 export function unpublishProject(id: string) {

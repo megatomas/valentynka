@@ -17,31 +17,27 @@ export function PublishedPage() {
   const [showConfetti, setShowConfetti] = useState(false);
 
   useEffect(() => {
-    const loadProject = async () => {
-      if (!slug) {
-        setNotFound(true);
-        setLoading(false);
-        return;
-      }
+    if (!slug) {
+      setNotFound(true);
+      setLoading(false);
+      return;
+    }
 
-      try {
-        // Загружаем проект из удалённого хранилища
-        const loadedProject = await getPublishedProject(slug);
-        
-        if (loadedProject) {
-          setProject(loadedProject);
-        } else {
-          setNotFound(true);
-        }
-      } catch (error) {
-        console.error('Error loading project:', error);
+    try {
+      // Декодируем проект из URL
+      const loadedProject = getPublishedProject(slug);
+      
+      if (loadedProject) {
+        setProject(loadedProject);
+      } else {
         setNotFound(true);
-      } finally {
-        setLoading(false);
       }
-    };
-
-    loadProject();
+    } catch (error) {
+      console.error('Error loading project:', error);
+      setNotFound(true);
+    } finally {
+      setLoading(false);
+    }
   }, [slug]);
 
   const currentScene = project?.scenes[currentSceneIdx];
