@@ -17,38 +17,42 @@ export function PublishedPage() {
   const [showConfetti, setShowConfetti] = useState(false);
 
   useEffect(() => {
-    if (!slug) {
-      setNotFound(true);
-      setLoading(false);
-      return;
-    }
-
-    try {
-      console.log('Loading project with slug:', slug?.substring(0, 50) + '...');
-      
-      // Декодируем проект из URL
-      const loadedProject = getPublishedProject(slug);
-      
-      console.log('Loaded project:', loadedProject ? {
-        id: loadedProject.id,
-        title: loadedProject.title,
-        scenesCount: loadedProject.scenes?.length || 0
-      } : null);
-      
-      if (loadedProject && loadedProject.scenes && loadedProject.scenes.length > 0) {
-        setProject(loadedProject);
-        setNotFound(false);
+    const loadProject = async () => {
+      if (!slug) {
+        setNotFound(true);
         setLoading(false);
-      } else {
-        console.error('Project is null or has no scenes');
+        return;
+      }
+
+      try {
+        console.log('Loading project with slug:', slug?.substring(0, 50) + '...');
+        
+        // Загружаем проект (использует Supabase если настроен, иначе декодирует из URL)
+        const loadedProject = await getPublishedProject(slug);
+        
+        console.log('Loaded project:', loadedProject ? {
+          id: loadedProject.id,
+          title: loadedProject.title,
+          scenesCount: loadedProject.scenes?.length || 0
+        } : null);
+        
+        if (loadedProject && loadedProject.scenes && loadedProject.scenes.length > 0) {
+          setProject(loadedProject);
+          setNotFound(false);
+          setLoading(false);
+        } else {
+          console.error('Project is null or has no scenes');
+          setNotFound(true);
+          setLoading(false);
+        }
+      } catch (error) {
+        console.error('Error loading project:', error);
         setNotFound(true);
         setLoading(false);
       }
-    } catch (error) {
-      console.error('Error loading project:', error);
-      setNotFound(true);
-      setLoading(false);
-    }
+    };
+
+    loadProject();
   }, [slug]);
 
   const currentScene = project?.scenes[currentSceneIdx];

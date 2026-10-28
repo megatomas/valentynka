@@ -1,6 +1,8 @@
 import { v4 as uuidv4 } from 'uuid';
 import type { Project, Scene, Template, TemplateCategory } from './types';
 import { encodeProjectData, decodeProjectData } from './lib/compressedStorage';
+import { saveProjectToSupabase, loadProjectFromSupabase } from './lib/supabaseStorage';
+import { isSupabaseConfigured } from './lib/supabase';
 
 const PROJECTS_KEY = 'loveletter_projects';
 const CURRENT_USER_KEY = 'loveletter_user';
@@ -349,8 +351,8 @@ export function deleteProject(id: string) {
   saveProjects(projects);
 }
 
-// Публикация проекта с сжатием данных в URL
-export function publishProject(id: string): string {
+// Публикация проекта - использует Supabase если настроен, иначе кодирует в URL
+export async function publishProject(id: string): Promise<string> {
   const projects = getProjects();
   const idx = projects.findIndex(p => p.id === id);
   
@@ -367,27 +369,55 @@ export function publishProject(id: string): string {
       throw new Error('Проект не содержит сцен. Добавьте хотя бы одну сцену.');
     }
     
-    // Кодируем данные проекта с сжатием
-    const encoded = encodeProjectData(projectData);
+    let slug: string;
     
-    if (!encoded) {
-      throw new Error('Не удалось закодировать данные проекта.');
+    // Если Supabase настроен, используем его для коротких ссылок
+    if (isSupabaseConfigured()) {
+      console.log('Using Supabase for short links');
+      const supabaseSlug = await saveProjectToSupabase(projectData);
+      
+      if (supabaseSlug) {
+        slug = supabaseSlug;
+      } else {
+        console.warn('Supabase save failed, falling back to URL encoding');
+        slug = encodeProjectData(projectData);
+      }
+    } else {
+      // Fallback: кодируем данные в URL
+      console.log('Supabase not configured, using URL encoding');
+      slug = encodeProjectData(projectData);
+    }
+    
+    if (!slug) {
+      throw new Error('Не удалось создать ссылку для проекта.');
     }
     
     projects[idx].status = 'published';
-    projects[idx].publishedSlug = encoded;
+    projects[idx].publishedSlug = slug;
     projects[idx].updatedAt = new Date().toISOString();
     saveProjects(projects);
     
-    return encoded;
+    return slug;
   } catch (error) {
     console.error('Error publishing project:', error);
     throw error;
   }
 }
 
-// Получение опубликованного проекта из URL
-export function getPublishedProject(slug: string): Project | null {
+// Получение опубликованного проекта - использует Supabase если настроен
+export async function getPublishedProject(slug: string): Promise<Project | null> {
+  // Если Supabase настроен, пробуем загрузить из него
+  if (isSupabaseConfigured()) {
+    console.log('Trying to load from Supabase');
+    const supabaseProject = await loadProjectFromSupabase(slug);
+    
+    if (supabaseProject) {
+      return supabaseProject;
+    }
+  }
+  
+  // Fallback: декодируем из URL
+  console.log('Falling back to URL decoding');
   return decodeProjectData(slug);
 }
 

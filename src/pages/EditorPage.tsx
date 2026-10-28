@@ -4,9 +4,10 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Heart, ArrowLeft, Save, Eye, Plus, Trash2, Copy, GripVertical,
   Type, Image, Music, Sparkles, Settings, Check, AlertCircle,
-  ChevronDown, Layers, Palette, Play, Monitor, Smartphone, Loader2
+  ChevronDown, Layers, Palette, Play, Monitor, Smartphone, Loader2, Database
 } from 'lucide-react';
 import { getProject, updateProject, publishProject, createEmptyProject } from '../store';
+import { isSupabaseConfigured } from '../lib/supabase';
 import type { Project, Scene, SceneElement, SceneType, ElementType } from '../types';
 
 const SCENE_TYPES: { value: SceneType; label: string; emoji: string }[] = [
@@ -195,12 +196,12 @@ export function EditorPage() {
     updateProjectState(p => ({ ...p, scenes }));
   };
 
-  const handlePublish = () => {
+  const handlePublish = async () => {
     if (!project) return;
     
     try {
-      // Кодируем данные проекта с сжатием
-      const slug = publishProject(project.id);
+      // Публикуем проект (использует Supabase если настроен, иначе кодирует в URL)
+      const slug = await publishProject(project.id);
       
       if (!slug) {
         alert('Не удалось создать ссылку. Проект не найден.');
@@ -731,9 +732,28 @@ export function EditorPage() {
                   Копировать
                 </button>
               </div>
-              <div className="p-3 bg-green-500/10 border border-green-500/20 rounded-lg">
-                <p className="text-xs text-green-300/80">
-                  ✅ <strong>Отлично!</strong> Данные сжаты и закодированы в ссылке. Она будет работать в любом браузере на любом устройстве без сервера.
+              <div className={`p-3 border rounded-lg ${
+                isSupabaseConfigured() 
+                  ? 'bg-green-500/10 border-green-500/20' 
+                  : 'bg-blue-500/10 border-blue-500/20'
+              }`}>
+                <p className={`text-xs ${
+                  isSupabaseConfigured() ? 'text-green-300/80' : 'text-blue-300/80'
+                }`}>
+                  {isSupabaseConfigured() ? (
+                    <>
+                      <Database size={12} className="inline mr-1" />
+                      <strong>Supabase подключён!</strong> Данные хранятся в облачной базе данных. Ссылка короткая и удобная.
+                    </>
+                  ) : (
+                    <>
+                      <strong>Supabase не настроен.</strong> Данные закодированы в ссылке. Для коротких ссылок настройте Supabase.
+                      <br />
+                      <a href="/SUPABASE_SETUP.md" target="_blank" className="underline hover:no-underline">
+                        Инструкция по настройке →
+                      </a>
+                    </>
+                  )}
                 </p>
               </div>
               <div className="flex gap-3">
