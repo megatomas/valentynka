@@ -27,6 +27,8 @@ export function encodeProjectData(project: Project): string {
 // Декодирование проекта из URL
 export function decodeProjectData(encoded: string): Project | null {
   try {
+    console.log('Decoding project, encoded length:', encoded.length);
+    
     // Восстанавливаем base64
     let base64 = encoded.replace(/-/g, '+').replace(/_/g, '/');
     
@@ -37,10 +39,13 @@ export function decodeProjectData(encoded: string): Project | null {
     
     // Декодируем
     const json = decodeURIComponent(escape(atob(base64)));
+    console.log('Decoded JSON length:', json.length);
+    
     const data = JSON.parse(json);
+    console.log('Parsed data:', { id: data.id, title: data.title, scenesCount: data.scenes?.length });
     
     // Восстанавливаем полную структуру Project
-    return {
+    const project: Project = {
       ...data,
       description: data.description || '',
       templateId: data.templateId,
@@ -51,8 +56,12 @@ export function decodeProjectData(encoded: string): Project | null {
       responses: [],
       viewCount: 0,
     };
+    
+    console.log('Project restored successfully');
+    return project;
   } catch (error) {
     console.error('Error decoding project:', error);
+    console.error('Encoded string (first 100 chars):', encoded.substring(0, 100));
     return null;
   }
 }

@@ -24,28 +24,54 @@ export function PublishedPage() {
     }
 
     try {
+      console.log('Loading project with slug:', slug?.substring(0, 50) + '...');
+      
       // Декодируем проект из URL
       const loadedProject = getPublishedProject(slug);
       
-      if (loadedProject) {
+      console.log('Loaded project:', loadedProject ? {
+        id: loadedProject.id,
+        title: loadedProject.title,
+        scenesCount: loadedProject.scenes?.length || 0
+      } : null);
+      
+      if (loadedProject && loadedProject.scenes && loadedProject.scenes.length > 0) {
         setProject(loadedProject);
         setNotFound(false);
+        setLoading(false);
       } else {
+        console.error('Project is null or has no scenes');
         setNotFound(true);
+        setLoading(false);
       }
     } catch (error) {
       console.error('Error loading project:', error);
       setNotFound(true);
-    } finally {
       setLoading(false);
     }
   }, [slug]);
 
   const currentScene = project?.scenes[currentSceneIdx];
+  
+  // Защита от некорректного индекса сцены
+  useEffect(() => {
+    if (project && currentSceneIdx >= project.scenes.length) {
+      setCurrentSceneIdx(0);
+    }
+  }, [project, currentSceneIdx]);
 
   const goNext = () => {
-    if (project && currentSceneIdx < project.scenes.length - 1) {
-      setCurrentSceneIdx(currentSceneIdx + 1);
+    if (!project) {
+      console.warn('goNext called but project is null');
+      return;
+    }
+    
+    if (currentSceneIdx < project.scenes.length - 1) {
+      const nextIdx = currentSceneIdx + 1;
+      console.log('goNext: moving from scene', currentSceneIdx, 'to', nextIdx);
+      setCurrentSceneIdx(nextIdx);
+    } else {
+      console.warn('goNext: already on last scene', currentSceneIdx, 'of', project.scenes.length);
     }
   };
 
@@ -89,8 +115,19 @@ export function PublishedPage() {
     // Автоматический переход на следующую сцену после выбора ответа
     if (project && currentSceneIdx < project.scenes.length - 1) {
       setTimeout(() => {
-        setCurrentSceneIdx(prev => prev + 1);
+        setCurrentSceneIdx(prev => {
+          const nextIdx = prev + 1;
+          // Защита от выхода за пределы массива
+          if (nextIdx >= project.scenes.length) {
+            console.warn('Attempted to go beyond last scene, staying on current');
+            return prev;
+          }
+          console.log('Moving to scene:', nextIdx, 'of', project.scenes.length);
+          return nextIdx;
+        });
       }, 1500);
+    } else {
+      console.log('Already on last scene, not advancing');
     }
   };
 
@@ -149,8 +186,17 @@ export function PublishedPage() {
   // Показываем загрузку если нет данных
   if (!project || !currentScene) {
     return (
-      <div className="min-h-screen bg-dark-950 flex items-center justify-center text-white">
-        <div className="animate-pulse text-white/50">Загрузка...</div>
+      <div className="min-h-screen bg-dark-950 flex items-center justify-center text-white px-4">
+        <div className="text-center max-w-md">
+          <Heart size={48} className="mx-auto text-rose-400/30 mb-4" />
+          <h1 className="font-display text-2xl font-bold mb-2">Ошибка загрузки</h1>
+          <p className="text-white/50 mb-6">
+            Не удалось загрузить приглашение. Возможно, ссылка повреждена.
+          </p>
+          <Link to="/" className="inline-block px-6 py-3 bg-white/5 border border-white/10 rounded-full hover:bg-white/10 transition-all">
+            На главную
+          </Link>
+        </div>
       </div>
     );
   }
